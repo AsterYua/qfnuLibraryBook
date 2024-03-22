@@ -204,15 +204,15 @@ def check_book_seat():
     try:
         res = get_member_seat(AUTH_TOKEN)
         for entry in res["data"]["data"]:
-            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+            if entry["statusName"] == "预约成功" and DATE == "tomorrow" or DATE == "today":
                 logger.info("存在已经预约的座位")
                 seat_id = entry["name"]
                 name = entry["nameMerge"]
+                FLAG = True
                 MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                 asyncio.run(send_seat_result_to_channel())
                 send_message_anpush()
-                FLAG = True
                 break
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
@@ -229,7 +229,7 @@ def check_reservation_status():
     global FLAG, MESSAGE
     # 状态信息检测
     status = SEAT_RESULT['msg']
-    logger.info(status)
+    logger.info("预约状态：" + status)
     if status is not None:
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
@@ -249,7 +249,6 @@ def check_reservation_status():
             logger.info("此位置已被预约，重新获取座位")
         elif status == "取消成功":
             logger.info("取消成功")
-            sys.exit()
 
 
 def generate_unique_random():
@@ -385,6 +384,7 @@ def cancel_seat(seat_id):
             "Authorization": AUTH_TOKEN
         }
         SEAT_RESULT = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
+        check_reservation_status();
     except KeyError:
         logger.info("数据解析错误")
 
@@ -401,7 +401,7 @@ def rebook_seat_or_checkout():
             if MODE == "5":
                 # logger.info("test")
                 for item in res["data"]["data"]:
-                    if item["statusName"] == "预约开始提醒":
+                    if item["statusName"] == "预约开始提醒" or item["statusName"] == "预约成功":
                         ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
@@ -410,6 +410,7 @@ def rebook_seat_or_checkout():
                         segment = get_segment(build_id, NEW_DATE)
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
+                        break
                     else:
                         logger.error("没有找到已经预约的座位，你可能没有预约座位")
                         MESSAGE += "\n没有找到已经预约的座位，你可能没有预约座位"
@@ -450,7 +451,7 @@ def rebook_seat_or_checkout():
                     res = send_post_request_and_save_response(URL_CHECK_OUT, post_data, request_headers)
                     if "msg" in res:
                         status = res["msg"]
-                        logger.info(status)
+                        logger.info("签退状态：" + status)
                         if status == "完全离开操作成功":
                             MESSAGE += "\n恭喜签退成功"
                             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
@@ -508,7 +509,7 @@ def check_time():
         send_message_anpush()
         sys.exit()
     # 如果距离时间在合适的范围内, 将设置等待时间
-    elif time_difference > 0:
+    elif time_difference > 30:
         logger.info(f"程序等待{time_difference}秒后启动")
         time.sleep(time_difference - 10)
         get_info_and_select_seat()
