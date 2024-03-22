@@ -113,7 +113,7 @@ def send_post_request_and_save_response(url, data, headers):
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            response = requests.post(url, json=data, headers=headers, timeout=60)
+            response = requests.post(url, json=data, headers=headers, timeout=120)
             response.raise_for_status()
             response_data = response.json()
             return response_data
@@ -218,10 +218,12 @@ def check_book_seat():
                 logger.info("存在正在使用的座位")
                 FLAG = True
                 break
+            else:
+                continue
     # todo 错误不明 需要提供日志
-    except KeyError:
+    except Exception as e:
+        logger.error(e)
         logger.error("获取个人座位出现错误")
-        check_book_seat()
 
 
 # 状态检测函数
@@ -399,7 +401,8 @@ def rebook_seat_or_checkout():
         if res is not None:
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
-                # logger.info("test")
+                current_time = datetime.datetime.now()
+                logger.info(current_time)
                 for item in res["data"]["data"]:
                     if item["statusName"] == "预约开始提醒" or item["statusName"] == "预约成功":
                         ids = item["id"]  # 获取 id
@@ -501,7 +504,7 @@ def check_time():
     # 计算距离预约时间的秒数
     time_difference = (reservation_time - current_time).total_seconds()
     # 如果距离时间过长，自动停止程序
-    if time_difference > 1000:
+    if time_difference > 1200:
         logger.info("距离预约时间过长，程序将自动停止。")
         MESSAGE += "\n距离预约时间过长，程序将自动停止"
         send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
